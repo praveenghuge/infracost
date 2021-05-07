@@ -144,10 +144,6 @@ build_msg () {
 }
 
 post_to_github () {
-  if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
-    GITHUB_SHA=$(cat $GITHUB_EVENT_PATH | jq -r .pull_request.head.sha)
-  fi
-  
   echo "Posting comment to GitHub commit $GITHUB_SHA"
   msg="$(build_msg true)"
   jq -Mnc --arg msg "$msg" '{"body": "\($msg)"}' | curl -L -X POST -d @- \
@@ -206,6 +202,28 @@ post_to_bitbucket () {
     echo "Posting comment to Bitbucket commit $BITBUCKET_COMMIT"
     post_bitbucket_comment "$BITBUCKET_REPO_FULL_NAME/commit/$BITBUCKET_COMMIT/comments"
   fi
+}
+
+load_github_env () {
+  github_event=$(cat $GITHUB_EVENT_PATH)
+
+  if [ "$GITHUB_EVENT_NAME" == "pull_request" ]; then
+    GITHUB_SHA=$(echo $github_event | jq -r .pull_request.head.sha)
+    export GITHUB_PR_URL=$(echo $github_event | jq -r .pull_request.html_url)
+  else
+    export GITHUB_PR_URL=$(curl -s \
+      -H "Accept: application/vnd.github.groot-preview+json" \
+      -H "Authorization: token $GITHUB_TOKEN" \
+      $GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls \
+      | jq -r '. | map(select(.state == "open")) | . |= sort_by(.updated_at) | reverse | .[0].html_url')
+  fi
+}
+
+load_gitlab_env () {
+  first_mr=$(echo $CI_OPEN_MERGE_REQUESTS | cut -d',' -f1)
+  repo=$(echo $first_mr | cut -d'!' -f1)
+  mr_number=$(echo $first_mr | cut -d'!' -f2)
+  export GITLAB_PR_URL=$CI_SERVER_URL/$repo/merge_requests/$mr_number
 }
 
 cleanup () {
@@ -269,8 +287,10 @@ fi
 if [ ! -z "$GITHUB_ACTIONS" ]; then
   echo "::set-output name=past_total_monthly_cost::$past_total_monthly_cost"
   echo "::set-output name=total_monthly_cost::$total_monthly_cost"
+  load_github_env
   post_to_github
 elif [ ! -z "$GITLAB_CI" ]; then
+  load_gitlab_env
   post_to_gitlab
 elif [ ! -z "$CIRCLECI" ]; then
   post_to_circle_ci
