@@ -95,13 +95,25 @@ func (p *DirProvider) checks() error {
 	return nil
 }
 
-func (p *DirProvider) LoadResources(usage map[string]*schema.UsageData) (*schema.Project, error) {
-	metadata := make(map[string]string)
-	if p.Workspace != "" {
-		metadata["terraformWorkspace"] = p.Workspace
+func (p *DirProvider) AddMetadata(metadata *schema.ProjectMetadata) {
+	terraformWorkspace := p.ctx.ProjectConfig.TerraformWorkspace
+
+	if terraformWorkspace == "" {
+		binary := p.TerraformBinary
+		out, err := exec.Command(binary, "workspace", "show").Output()
+		if err != nil {
+			log.Debugf("Could not detect Terraform workspace for %s", p.Path)
+		}
+		terraformWorkspace = strings.Split(string(out), "\n")[0]
 	}
 
-	var project *schema.Project = schema.NewProject(p.Path, metadata)
+	metadata.TerraformWorkspace = terraformWorkspace
+}
+
+func (p *DirProvider) LoadResources(project *schema.Project, usage map[string]*schema.UsageData) error {
+	if p.Workspace != "" {
+		project.Metadata.TerraformWorkspace = p.Workspace
+	}
 
 	var j []byte
 	var err error
@@ -112,13 +124,13 @@ func (p *DirProvider) LoadResources(usage map[string]*schema.UsageData) (*schema
 		j, err = p.generatePlanJSON()
 	}
 	if err != nil {
-		return project, err
+		return err
 	}
 
 	parser := NewParser(p.ctx)
 	pastResources, resources, err := parser.parseJSON(j, usage)
 	if err != nil {
-		return project, errors.Wrap(err, "Error parsing Terraform JSON")
+		return errors.Wrap(err, "Error parsing Terraform JSON")
 	}
 
 	project.HasDiff = !p.UseState
@@ -127,7 +139,7 @@ func (p *DirProvider) LoadResources(usage map[string]*schema.UsageData) (*schema
 	}
 	project.Resources = resources
 
-	return project, nil
+	return nil
 }
 
 func (p *DirProvider) generatePlanJSON() ([]byte, error) {

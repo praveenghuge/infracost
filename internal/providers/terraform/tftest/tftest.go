@@ -181,7 +181,9 @@ func loadResources(cfg *config.Config, tfProject TerraformProject, usage map[str
 		},
 	))
 
-	return provider.LoadResources(usage)
+	project := schema.NewProject("tftest", &schema.ProjectMetadata{})
+
+	return project, provider.LoadResources(project, usage)
 }
 
 func writeToTmpDir(tfProject TerraformProject) (string, error) {

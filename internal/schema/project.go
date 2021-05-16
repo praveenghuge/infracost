@@ -1,19 +1,39 @@
 package schema
 
+import (
+	"crypto/md5" // nolint:gosec
+	"encoding/base32"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
+)
+
+type ProjectMetadata struct {
+	Path               string `json:"path"`
+	Type               string `json:"type"`
+	VCSRepoURL         string `json:"vcsRepoUrl,omitempty"`
+	VCSSubPath         string `json:"vcsSubPath,omitempty"`
+	VCSPullRequestURL  string `json:"vcsPullRequestUrl,omitempty"`
+	TerraformWorkspace string `json:"terraformWorkspace,omitempty"`
+}
+
 // Project contains the existing, planned state of
 // resources and the diff between them.
 type Project struct {
-	Path          string
-	Metadata      map[string]string
+	Name          string
+	Metadata      *ProjectMetadata
 	PastResources []*Resource
 	Resources     []*Resource
 	Diff          []*Resource
 	HasDiff       bool
 }
 
-func NewProject(path string, metadata map[string]string) *Project {
+func NewProject(name string, metadata *ProjectMetadata) *Project {
 	return &Project{
-		Path:     path,
+		Name:     name,
 		Metadata: metadata,
 		HasDiff:  true,
 	}
@@ -43,4 +63,52 @@ func AllProjectResources(projects []*Project) []*Resource {
 	}
 
 	return resources
+}
+
+func GenerateProjectName(metadata *ProjectMetadata) string {
+	var n string
+
+	// If the VCS repo is set, create the name from that
+	if metadata.VCSRepoURL != "" {
+		n = tidyRepoURL(metadata.VCSRepoURL)
+
+		if metadata.VCSSubPath != "" {
+			n += "/" + metadata.VCSSubPath
+		}
+		// If not then use a hash of the absolute filepath to the project
+	} else {
+		absPath, err := filepath.Abs(metadata.Path)
+		if err != nil {
+			log.Debugf("Could not get absolute path for %s", metadata.Path)
+			absPath = metadata.Path
+		}
+
+		n = fmt.Sprintf("project_%s", shortHash(absPath, 8))
+	}
+
+	if metadata.TerraformWorkspace != "" && metadata.TerraformWorkspace != "default" {
+		n += fmt.Sprintf(" (%s)", metadata.TerraformWorkspace)
+	}
+
+	return n
+}
+
+// Strips the *@ and .git prefix and suffix
+func tidyRepoURL(url string) string {
+	r := regexp.MustCompile(`(?:\w+@)(.+)(?:\.git)`)
+	m := r.FindStringSubmatch(url)
+	if len(m) > 1 {
+		return m[1]
+	}
+
+	return url
+}
+
+// Returns a lowercase truncated hash of length l
+func shortHash(s string, l int) string {
+	sum := md5.Sum([]byte(s)) //nolint:gosec
+	var b []byte = sum[:]
+	h := base32.StdEncoding.EncodeToString(b)
+
+	return strings.ToLower(h)[:l]
 }

@@ -79,7 +79,13 @@ func runMain(cmd *cobra.Command, runCtx *config.RunContext) error {
 			ctx.SetMetadata("hasUsageFile", true)
 		}
 
-		project, err := provider.LoadResources(u)
+		metadata := config.DetectProjectMetadata(ctx)
+		metadata.Type = provider.Type()
+		provider.AddMetadata(metadata)
+		name := schema.GenerateProjectName(metadata)
+
+		project := schema.NewProject(name, metadata)
+		err = provider.LoadResources(project, u)
 		if err != nil {
 			return err
 		}
