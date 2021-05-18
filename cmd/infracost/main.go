@@ -66,7 +66,7 @@ func main() {
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
-			ctx.SetMetadata("command", cmd.Name())
+			ctx.SetContextValue("command", cmd.Name())
 
 			return loadGlobalFlags(ctx, cmd)
 		},
@@ -257,7 +257,7 @@ func loadGlobalFlags(ctx *config.RunContext, cmd *cobra.Command) error {
 		ctx.Config.PricingAPIEndpoint, _ = cmd.Flags().GetString("pricing-api-endpoint")
 	}
 
-	ctx.SetMetadata("isDefaultPricingAPIEndpoint", ctx.Config.PricingAPIEndpoint == ctx.Config.DefaultPricingAPIEndpoint)
+	ctx.SetContextValue("isDefaultPricingAPIEndpoint", ctx.Config.PricingAPIEndpoint == ctx.Config.DefaultPricingAPIEndpoint)
 
 	flagNames := make([]string, 0)
 
@@ -265,7 +265,7 @@ func loadGlobalFlags(ctx *config.RunContext, cmd *cobra.Command) error {
 		flagNames = append(flagNames, f.Name)
 	})
 
-	ctx.SetMetadata("flags", flagNames)
+	ctx.SetContextValue("flags", flagNames)
 
 	return nil
 }
