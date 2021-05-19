@@ -13,8 +13,8 @@ func ToTable(out Root, opts Options) ([]byte, error) {
 
 	hasNilCosts := false
 
-	for i, project := range out.Projects {
-		if project.Breakdown == nil {
+	for i, projectResult := range out.ProjectResults {
+		if projectResult.Breakdown == nil {
 			continue
 		}
 
@@ -24,17 +24,17 @@ func ToTable(out Root, opts Options) ([]byte, error) {
 
 		s += fmt.Sprintf("%s %s\n\n",
 			ui.BoldString("Project:"),
-			project.Name,
+			projectResult.ProjectName,
 		)
 
-		if breakdownHasNilCosts(*project.Breakdown) {
+		if breakdownHasNilCosts(*projectResult.Breakdown) {
 			hasNilCosts = true
 		}
 
-		s += tableForBreakdown(*project.Breakdown, opts.Fields)
+		s += tableForBreakdown(*projectResult.Breakdown, opts.Fields)
 		s += "\n"
 
-		if i != len(out.Projects)-1 {
+		if i != len(out.ProjectResults)-1 {
 			s += "\n"
 		}
 	}

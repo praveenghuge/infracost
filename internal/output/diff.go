@@ -21,8 +21,8 @@ func ToDiff(out Root, opts Options) ([]byte, error) {
 	hasNilCosts := false
 	hasEmptyDiff := true
 
-	for i, project := range out.Projects {
-		if project.Diff == nil {
+	for i, projectResult := range out.ProjectResults {
+		if projectResult.Diff == nil {
 			continue
 		}
 
@@ -32,14 +32,14 @@ func ToDiff(out Root, opts Options) ([]byte, error) {
 
 		s += fmt.Sprintf("%s %s\n\n",
 			ui.BoldString("Project:"),
-			project.Name,
+			projectResult.ProjectName,
 		)
 
-		for _, diffResource := range project.Diff.Resources {
+		for _, diffResource := range projectResult.Diff.Resources {
 			hasEmptyDiff = false
 
-			oldResource := findResourceByName(project.PastBreakdown.Resources, diffResource.Name)
-			newResource := findResourceByName(project.Breakdown.Resources, diffResource.Name)
+			oldResource := findResourceByName(projectResult.PastBreakdown.Resources, diffResource.Name)
+			newResource := findResourceByName(projectResult.Breakdown.Resources, diffResource.Name)
 
 			if (newResource == nil || resourceHasNilCosts(*newResource)) &&
 				(oldResource == nil || resourceHasNilCosts(*oldResource)) {
@@ -51,19 +51,19 @@ func ToDiff(out Root, opts Options) ([]byte, error) {
 		}
 
 		var oldCost *decimal.Decimal
-		if project.PastBreakdown != nil {
-			oldCost = project.PastBreakdown.TotalMonthlyCost
+		if projectResult.PastBreakdown != nil {
+			oldCost = projectResult.PastBreakdown.TotalMonthlyCost
 		}
 
 		var newCost *decimal.Decimal
-		if project.Breakdown != nil {
-			newCost = project.Breakdown.TotalMonthlyCost
+		if projectResult.Breakdown != nil {
+			newCost = projectResult.Breakdown.TotalMonthlyCost
 		}
 
 		s += fmt.Sprintf("%s %s\nAmount:  %s %s",
 			ui.BoldString("Monthly cost change for"),
-			ui.BoldString(project.Name),
-			formatCostChange(project.Diff.TotalMonthlyCost),
+			ui.BoldString(projectResult.ProjectName),
+			formatCostChange(projectResult.Diff.TotalMonthlyCost),
 			ui.FaintStringf("(%s -> %s)", formatCost(oldCost), formatCost(newCost)),
 		)
 
@@ -74,7 +74,7 @@ func ToDiff(out Root, opts Options) ([]byte, error) {
 			)
 		}
 
-		if i != len(out.Projects)-1 {
+		if i != len(out.ProjectResults)-1 {
 			s += "\n\n"
 		}
 	}
